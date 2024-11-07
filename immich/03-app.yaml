@@ -1,0 +1,131 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: immich-server-deployment
+  namespace: immich
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: immich-server
+  template:
+    metadata:
+      labels:
+        app: immich-server
+    spec:
+      containers:
+        - name: immich-server
+          image: ghcr.io/immich-app/immich-server:release
+          imagePullPolicy: "Always"
+          ports:
+            - containerPort: 2283
+          envFrom:
+            - configMapRef:
+                name: immich-config
+            - secretRef:
+                name: immich-secrets
+          volumeMounts:
+            # - name: upload-location
+            #   mountPath: /usr/src/app/upload
+            - name: upload
+              mountPath: /usr/src/app/upload
+            # - name: localtime
+            #   mountPath: /etc/localtime
+            #   readOnly: true
+      volumes:
+        # - name: upload-location
+        #   persistentVolumeClaim:
+        #     claimName: upload-location-pvc
+        - name: upload
+          persistentVolumeClaim:
+            claimName: upload-pvc
+        # - name: localtime
+        #   hostPath:
+        #     path: /etc/localtime
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-deployment
+  namespace: immich
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: docker.io/tensorchord/pgvecto-rs:pg14-v0.2.0
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - configMapRef:
+                name: immich-config
+            - secretRef:
+                name: immich-secrets
+          volumeMounts:
+            - name: db-data-location
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: db-data-location
+          persistentVolumeClaim:
+            claimName: db-data-location-pvc
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-deployment
+  namespace: immich
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: machine-learning
+  template:
+    metadata:
+      labels:
+        app: machine-learning
+    spec:
+      containers:
+        - name: machine-learning
+          image: ghcr.io/immich-app/immich-machine-learning:release
+          ports:
+            - containerPort: 3003
+          envFrom:
+            - configMapRef:
+                name: immich-config
+            - secretRef:
+                name: immich-secrets
+          volumeMounts:
+            - name: ml-cache
+              mountPath: /cache
+      volumes:
+        - name: ml-cache
+          persistentVolumeClaim:
+            claimName: ml-cache-pvc
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-deployment
+  namespace: immich
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:6.2-alpine
+          ports:
+            - containerPort: 6379
